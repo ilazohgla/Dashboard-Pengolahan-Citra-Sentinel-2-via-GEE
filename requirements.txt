@@ -1,0 +1,10 @@
+# ── Core ─────────────────────────────────────────────────────
+streamlit>=1.35.0
+earthengine-api>=0.1.400
+folium>=0.17.0
+streamlit-folium>=0.20.0
+python-dotenv>=1.0.0
+
+# ── Opsional: diperlukan untuk fitur Upload Shapefile ─────────
+geopandas>=0.14.0
+shapely>=2.0.0
