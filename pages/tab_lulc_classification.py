@@ -28,6 +28,22 @@ from utils.geo_utils import get_centroid, utm_epsg_from_latlon
 from utils.download_utils import get_download_url, get_geotiff_raw_url, fetch_geotiff_bytes
 
 
+def _resolve_native_scale(composite, satellite: str) -> int:
+    """Kembalikan resolusi native citra (m/piksel) dengan bounds-check.
+
+    nominalScale() pada composite hasil median()+clip() kadang melaporkan
+    grid EPSG:4326 (geografis, ~111319 m = 1°) alih-alih proyeksi UTM native.
+    Hanya nilai wajar 2–120 m diterima; di luar itu fallback ke resolusi native
+    satelit yang diketahui (S2 = 10 m, L8/L9 = 30 m).
+    """
+    try:
+        raw = float(composite.select("B2").projection().nominalScale().getInfo())
+    except Exception:
+        raw = 0.0
+    fallback = {"S2": 10, "L8": 30, "L9": 30}.get(satellite, 10)
+    return int(round(raw)) if 2 <= raw <= 120 else fallback
+
+
 def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon):
     """Render Tab 3: LULC Classification"""
 
@@ -45,15 +61,7 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
     # native — nilainya ~111319 m (= 1 derajat) untuk Sentinel-2 yang
     # seharusnya 10 m. Terima hanya nilai wajar 2–120 m; di luar itu fallback
     # ke resolusi native satelit yang diketahui (S2 = 10 m, Landsat = 30 m).
-    try:
-        raw_scale = float(composite.select("B2").projection().nominalScale().getInfo())
-    except Exception:
-        raw_scale = 0.0
-
-    native_by_sat = {"S2": 10, "L8": 30, "L9": 30}
-    classification_scale = native_by_sat.get(satellite, 10)
-    if 2 <= raw_scale <= 120:
-        classification_scale = int(round(raw_scale))
+    classification_scale = _resolve_native_scale(composite, satellite)
 
     st.info(f"📐 **Resolusi Asli Citra Terdeteksi:** {classification_scale} m/piksel (Menggunakan ukuran asli GEE tanpa modifikasi/resampling).")
     col1, col2, col3 = st.columns(3)
@@ -244,7 +252,6 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
                     # berubah setelah proses selesai.
                     st.session_state["lulc_roi"] = roi
                     st.session_state["lulc_roi_json"] = roi_json
-                    st.session_state["lulc_classification_scale"] = classification_scale
                     st.session_state["classification_result_method"] = method
                     st.session_state["lulc_accuracy"] = accuracy
                     st.session_state["lulc_areas"] = areas
@@ -267,7 +274,10 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
         # bukan AOI global yang mungkin sudah berubah.
         result_roi = st.session_state.get("lulc_roi", roi)
         result_roi_json = st.session_state.get("lulc_roi_json", roi_json)
-        classification_scale = st.session_state.get("lulc_classification_scale", classification_scale)
+        # JANGAN ambil scale dari session state — bisa tertinggal nilai lama
+        # (mis. 111319 dari run sebelum perbaikan). Hitung ulang selalu dari
+        # composite + satelit dengan bounds-check.
+        classification_scale = _resolve_native_scale(composite, satellite)
         method = st.session_state["classification_result_method"]
         accuracy = st.session_state["lulc_accuracy"]
         areas = st.session_state["lulc_areas"]
