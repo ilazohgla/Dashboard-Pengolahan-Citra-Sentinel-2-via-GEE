@@ -51,3 +51,8 @@ Thumbs.db
 *.tiff
 *.geojson
 data/
+
+# ── Local dev artifacts ────────────────────────
+.venv-test/
+graphify-out/
+test_harness.py
