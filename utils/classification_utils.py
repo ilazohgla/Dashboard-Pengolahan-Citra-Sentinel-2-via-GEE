@@ -21,18 +21,21 @@ import pandas as pd
 
 
 # ── KONFIGURASI LULC ──────────────────────────────────────────────────────
+# Kelas LULC DINOMORI 1-7 (bukan 0-6). Nilai 0 sengaja TIDAK dipakai agar
+# tidak bentrok dengan NoData/background di software GIS (banyak aplikasi
+# memperlakukan 0 sebagai nodata dan "menghilangkan" piksel kelas 0).
 LULC_CLASSES = {
-    0: "Built-up (Area Terbangun)",
-    1: "Cropland (Lahan Pertanian)",
-    2: "Forest (Hutan)",
-    3: "Water (Perairan)",
-    4: "Bare Land (Lahan Terbuka)",
-    5: "Shrub & Grassland (Semak/Padang Rumput)",
-    6: "Wetland (Lahan Basah)",
+    1: "Built-up (Area Terbangun)",
+    2: "Cropland (Lahan Pertanian)",
+    3: "Forest (Hutan)",
+    4: "Water (Perairan)",
+    5: "Bare Land (Lahan Terbuka)",
+    6: "Shrub & Grassland (Semak/Padang Rumput)",
+    7: "Wetland (Lahan Basah)",
 }
 
 LULC_PALETTE = ["#e53935", "#f4b400", "#2e7d32", "#1e88e5", "#9e9d24", "#6d4c41", "#26a69a"]
-LULC_COLORS = {i: LULC_PALETTE[i] for i in range(7)}
+LULC_COLORS = {i: LULC_PALETTE[i - 1] for i in range(1, 8)}
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -151,13 +154,13 @@ def create_auto_training_samples(
     Generate training samples otomatis berdasarkan threshold indeks spektral.
 
     Kelas:
-      0 = Built-up   : NDBI > 0.05 & NDVI < 0.2
-      1 = Cropland   : 0.35 ≤ NDVI ≤ 0.55 & SAVI > 0.1
-      2 = Forest     : NDVI > 0.6 & EVI > 0.2
-      3 = Water      : NDWI > 0.25 & MNDWI > 0.1
-      4 = Bare Land  : BSI > 0.1 & NDVI < 0.1 & NDWI < 0.05
-      5 = Shrub      : 0.15 ≤ NDVI < 0.35 & NDWI < 0.1
-      6 = Wetland    : 0.05 ≤ NDWI ≤ 0.25 & NDVI < 0.2
+      1 = Built-up   : NDBI > 0.05 & NDVI < 0.2
+      2 = Cropland   : 0.35 ≤ NDVI ≤ 0.55 & SAVI > 0.1
+      3 = Forest     : NDVI > 0.6 & EVI > 0.2
+      4 = Water      : NDWI > 0.25 & MNDWI > 0.1
+      5 = Bare Land  : BSI > 0.1 & NDVI < 0.1 & NDWI < 0.05
+      6 = Shrub      : 0.15 ≤ NDVI < 0.35 & NDWI < 0.1
+      7 = Wetland    : 0.05 ≤ NDWI ≤ 0.25 & NDVI < 0.2
     """
     ndvi = feature_image.select("NDVI")
     ndwi = feature_image.select("NDWI")
@@ -179,13 +182,13 @@ def create_auto_training_samples(
     mask_wetland = ndwi.gte(0.0).And(ndwi.lte(0.3)).And(ndvi.lt(0.3))
 
     masks = [
-        (mask_buildup, 0),
-        (mask_cropland, 1),
-        (mask_forest, 2),
-        (mask_water, 3),
-        (mask_bare_land, 4),
-        (mask_shrub, 5),
-        (mask_wetland, 6),
+        (mask_buildup, 1),
+        (mask_cropland, 2),
+        (mask_forest, 3),
+        (mask_water, 4),
+        (mask_bare_land, 5),
+        (mask_shrub, 6),
+        (mask_wetland, 7),
     ]
 
     def sample_class(mask, class_id):
@@ -215,7 +218,7 @@ def create_auto_training_samples(
             dropNulls=True,
             geometries=True,
         )
-        .map(lambda f: f.set("landcover", 5))
+        .map(lambda f: f.set("landcover", 6))
     )
     return samples.merge(fallback_samples)
 
@@ -258,14 +261,17 @@ def classify_kmeans(
     clusterer = ee.Clusterer.wekaKMeans(num_clusters).train(sample)
     clusters = input_img.cluster(clusterer).rename("cluster")
 
-    # Biarkan pixel NoData tetap masked (tidak `.unmask(0)`). Dengan begitu
-    # area tanpa data tampil transparan di basemap, bukan salah dikira kelas 0.
-    # NoData akan diisi 255 nanti saat export GeoTIFF.
+    # Biarkan pixel NoData tetap masked (tidak di-unmask ke 0) supaya area
+    # tanpa data transparan di basemap. Saat export, NoData diisi 0.
+    #
+    # wekaKMeans menghasilkan label cluster 0..k-1; geser +1 jadi 1..7 agar
+    # selaras dengan skema kelas LULC (1-7, tanpa class 0).
     return (
         clusters.rename("LULC")
         .clip(roi)
         .round()
-        .toUint8()
+        .toInt()
+        .add(1)
     )
 
 
@@ -394,7 +400,7 @@ def calculate_area_per_class(
     pixel_area = ee.Image.pixelArea().divide(1e6)  # Convert to km²
 
     areas = {}
-    for class_id in range(7):
+    for class_id in range(1, 8):  # kelas LULC 1-7
         area = (
             lulc_image.eq(class_id)
             .multiply(pixel_area)

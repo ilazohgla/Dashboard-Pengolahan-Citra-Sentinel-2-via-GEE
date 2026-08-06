@@ -89,9 +89,9 @@ Dashboard mendukung **klasifikasi tutupan lahan (Land Use Land Cover)** dengan *
 ### 7 Kelas Tutupan Lahan
 
 ```
-0 = 🏢 Built-up         1 = 🌾 Cropland        2 = 🌳 Forest
-3 = 💧 Water            4 = 🪨 Bare Land       5 = 🌱 Shrub & Grassland
-6 = 🏞️ Wetland
+1 = 🏢 Built-up         2 = 🌾 Cropland        3 = 🌳 Forest
+4 = 💧 Water            5 = 🪨 Bare Land      6 = 🌱 Shrub & Grassland
+7 = 🏞️ Wetland
 ```
 
 ### Feature Engineering (13 Fitur)
@@ -132,7 +132,7 @@ Setiap piksel dianalisis dengan **6 band reflektansi** (B2–B7 Sentinel-2 / SR_
 | **GeoTIFF – Nilai Mentah (Float)** | `.tif` nilai piksel asli | Analisis kuantitatif |
 
 - Resolusi default mengikuti **grid asli citra (10 m Sentinel-2)** agar hasil download identik dengan tampilan di peta.
-- Untuk **GeoTIFF LULC**: nilai piksel `0–6` = kelas, `255` = NoData.
+- Untuk **GeoTIFF LULC**: nilai piksel `1–7` = kelas, `0` = NoData.
 - > **Batas GEE:** `getDownloadURL` dibatasi ±32 MB / ±100 km². Untuk area lebih besar gunakan **Export ke Google Drive**.
 
 ---

@@ -33,13 +33,13 @@ Dashboard sekarang memiliki **tab baru untuk klasifikasi LULC dengan 4 metode ma
 #### 7 Kelas LULC
 
 ```
-0 = 🏢 Built-up (Area Terbangun)
-1 = 🌾 Cropland (Lahan Pertanian)
-2 = 🌳 Forest (Hutan)
-3 = 💧 Water (Perairan)
-4 = 🪨 Bare Land (Lahan Terbuka)
-5 = 🌱 Shrub & Grassland (Semak/Padang Rumput)
-6 = 🏞️ Wetland (Lahan Basah)
+1 = 🏢 Built-up (Area Terbangun)
+2 = 🌾 Cropland (Lahan Pertanian)
+3 = 🌳 Forest (Hutan)
+4 = 💧 Water (Perairan)
+5 = 🪨 Bare Land (Lahan Terbuka)
+6 = 🌱 Shrub & Grassland (Semak/Padang Rumput)
+7 = 🏞️ Wetland (Lahan Basah)
 ```
 
 #### Feature Engineering (13 Fitur)

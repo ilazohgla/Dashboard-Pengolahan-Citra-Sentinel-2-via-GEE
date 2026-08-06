@@ -159,7 +159,7 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
 
                         # Quick validation: pastikan hasil bukan image kosong
                         try:
-                            test_vis = lulc_result.getMapId({"min": 0, "max": 6, "palette": LULC_PALETTE})
+                            test_vis = lulc_result.getMapId({"min": 1, "max": 7, "palette": LULC_PALETTE})
                             del test_vis
                         except Exception as viz_err:
                             st.error(f"❌ K-Means menghasilkan image yang tidak valid untuk rendering: {viz_err}")
@@ -287,13 +287,12 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
         result_center_lat, result_center_lon = get_centroid(result_roi_json)
         Map = base_map(result_center_lat, result_center_lon, zoom=12)
         try:
-            # vis eksplisit: band "LULC" + palette 7 kelas, NoData transparan
-            # (hasil klasifikasi kini tidak di-unmask(0), jadi area kosong tidak
-            # menimpa basemap dengan warna kelas 0).
+            # vis eksplisit: band "LULC" + palette 7 kelas (nilai 1-7),
+            # NoData (0 / masked) transparan di basemap.
             add_ee_layer(
                 Map,
                 lulc_result,
-                {"bands": ["LULC"], "min": 0, "max": 6, "palette": LULC_PALETTE},
+                {"bands": ["LULC"], "min": 1, "max": 7, "palette": LULC_PALETTE},
                 f"LULC - {method}",
                 show=True,
             )
@@ -311,9 +310,9 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
         # Tampilkan legenda di bawah peta
         st.subheader("🎨 Legenda LULC (7 Kelas)")
         legend_cols = st.columns(4)
-        for idx in range(7):
-            with legend_cols[idx % 4]:
-                st.markdown(f"<span style='background-color: {LULC_PALETTE[idx]}; width: 20px; height: 20px; display: inline-block; border-radius: 3px; border: 1px solid #333; margin-right: 8px;'></span> {LULC_CLASSES[idx].split(' (')[0]}", unsafe_allow_html=True)
+        for class_id in range(1, 8):
+            with legend_cols[(class_id - 1) % 4]:
+                st.markdown(f"<span style='background-color: {LULC_PALETTE[class_id - 1]}; width: 20px; height: 20px; display: inline-block; border-radius: 3px; border: 1px solid #333; margin-right: 8px;'></span> {LULC_CLASSES[class_id].split(' (')[0]}", unsafe_allow_html=True)
 
         # Tampilkan akurasi jika ada
         if accuracy and st.session_state.get("show_accuracy", False):
@@ -363,7 +362,7 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
         # Buat dataframe
         area_data = []
         area_values_for_chart = []
-        for class_id in range(7):
+        for class_id in range(1, 8):  # kelas LULC 1-7
             area_val = areas[class_id]
             try:
                 raw = area_val.getInfo() if area_val else 0
@@ -402,10 +401,11 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
                 
                 fig_bar = go.Figure()
                 for idx, row in df_chart.iterrows():
+                    cid = area_values_for_chart[idx]["class_id"]
                     fig_bar.add_trace(go.Bar(
                         x=[row["Kelas"]],
                         y=[row["Luas"]],
-                        marker_color=LULC_PALETTE[area_values_for_chart[idx]["class_id"]],
+                        marker_color=LULC_PALETTE[cid - 1],
                         showlegend=False,
                         hovertemplate="%{x}<br>Luas: %{y:.2f} km²<extra></extra>"
                     ))
@@ -422,7 +422,7 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
         with tab_pie:
             if area_values_for_chart:
                 df_pie = pd.DataFrame(area_values_for_chart)
-                colors = [LULC_PALETTE[cid] for cid in df_pie["class_id"]]
+                colors = [LULC_PALETTE[cid - 1] for cid in df_pie["class_id"]]
                 labels = [LULC_CLASSES[cid].split(" (")[0] for cid in df_pie["class_id"]]
                 
                 fig_pie = go.Figure(data=[go.Pie(
@@ -441,7 +441,7 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
         result_center_lat, result_center_lon = get_centroid(result_roi_json)
         st.markdown("---")
         st.subheader("💾 Ekspor & Unduh GeoTIFF LULC")
-        st.info("Pilih metode ekspor di bawah ini. File hasil unduhan adalah data raster mentah (*integer/float*) dengan nilai piksel 0-6 sesuai kelas LULC.")
+        st.info("Pilih metode ekspor di bawah ini. File hasil unduhan adalah data raster mentah (*integer/float*) dengan nilai piksel 1-7 sesuai kelas LULC (0 = NoData).")
         
         col_dl, col_drv = st.columns(2)
         
@@ -501,7 +501,10 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
                             "Perbesar/geser AOI atau gunakan periode lain untuk variasi kelas."
                         )
 
-                    # Satu band integer: 0-6 = kelas LULC, 255 = NoData.
+                    # Satu band integer: 1-7 = kelas LULC, 0 = NoData.
+                    # Nilai 0 sengaja dijadikan NoData (bukan 255) karena kelas
+                    # dinomori 1-7 — konsisten dan aman di software GIS (0 selalu
+                    # dianggap nodata/background, tidak bentrok dengan kelas).
                     # Clip eksplisit ke snapshot AOI agar raster tidak kembali ke
                     # footprint komposit/default projection.
                     if composite is None:
@@ -519,7 +522,7 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
                         .rename("LULC_class")
                         .toUint8()
                         .setDefaultProjection(native_proj)
-                        .unmask(255)
+                        .unmask(0)
                     )
                     geotiff_data = None
                     download_error = ""
