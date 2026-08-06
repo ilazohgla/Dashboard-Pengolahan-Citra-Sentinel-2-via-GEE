@@ -17,18 +17,31 @@ from config import GEE_PROJECT
 @st.cache_resource(show_spinner="Menghubungkan ke Google Earth Engine...")
 def initialize_gee() -> bool:
     """
-    Inisialisasi GEE.  Urutan percobaan:
-    1. Service Account (Streamlit Cloud / production) — baca dari env GEE_SERVICE_ACCOUNT
-    2. ee.Initialize langsung (token lokal sudah ada)
-    3. ee.Authenticate() → ee.Initialize (fallback lokal)
+    Inisialisasi GEE. Urutan percobaan:
+    1. Service Account format lama (JSON penuh di GEE_SERVICE_ACCOUNT)
+    2. Service Account format terpisah (GEE_SERVICE_ACCOUNT=email + GEE_PRIVATE_KEY + GEE_PROJECT_ID)
+    3. ee.Initialize langsung (token lokal sudah ada)
+    4. ee.Authenticate() → ee.Initialize (fallback lokal)
     """
     sa_json = os.getenv("GEE_SERVICE_ACCOUNT")
-    if sa_json:
+    project_id = os.getenv("GEE_PROJECT_ID") or GEE_PROJECT
+
+    # Format 1: JSON penuh
+    if sa_json and sa_json.strip().startswith("{"):
         try:
-            credentials = ee.ServiceAccountCredentials(
-                email=None, key_data=sa_json
-            )
-            ee.Initialize(credentials, project=GEE_PROJECT)
+            credentials = ee.ServiceAccountCredentials(email=None, key_data=sa_json)
+            ee.Initialize(credentials, project=project_id)
+            return True
+        except Exception:
+            pass
+
+    # Format 2: email + private key terpisah
+    sa_email = os.getenv("GEE_SERVICE_ACCOUNT")
+    sa_key = os.getenv("GEE_PRIVATE_KEY")
+    if sa_email and sa_key and not sa_email.strip().startswith("{"):
+        try:
+            credentials = ee.ServiceAccountCredentials(email=sa_email, key_data=sa_key)
+            ee.Initialize(credentials, project=project_id)
             return True
         except Exception:
             pass
