@@ -18,13 +18,17 @@ from config import GEE_PROJECT
 def initialize_gee() -> bool:
     """
     Inisialisasi GEE. Urutan percobaan:
-    1. Service Account format lama (JSON penuh di GEE_SERVICE_ACCOUNT)
-    2. Service Account format terpisah (GEE_SERVICE_ACCOUNT=email + GEE_PRIVATE_KEY + GEE_PROJECT_ID)
-    3. ee.Initialize langsung (token lokal sudah ada)
-    4. ee.Authenticate() → ee.Initialize (fallback lokal)
+    1. Service Account JSON penuh (GEE_SERVICE_ACCOUNT = {...})
+    2. Service Account terpisah (GEE_SERVICE_ACCOUNT=email + GEE_PRIVATE_KEY + GEE_PROJECT_ID)
+    3. ee.Initialize langsung (token lokal)
+    4. ee.Authenticate() → fallback
     """
-    sa_json = os.getenv("GEE_SERVICE_ACCOUNT")
-    project_id = os.getenv("GEE_PROJECT_ID") or GEE_PROJECT
+    # Baca dari st.secrets dulu (Streamlit Cloud), fallback ke os.getenv (lokal)
+    secrets = getattr(st, "secrets", {})
+
+    sa_json = secrets.get("GEE_SERVICE_ACCOUNT") or os.getenv("GEE_SERVICE_ACCOUNT")
+    sa_key  = secrets.get("GEE_PRIVATE_KEY") or os.getenv("GEE_PRIVATE_KEY")
+    project_id = secrets.get("GEE_PROJECT_ID") or secrets.get("GEE_PROJECT") or os.getenv("GEE_PROJECT_ID") or GEE_PROJECT
 
     # Format 1: JSON penuh
     if sa_json and sa_json.strip().startswith("{"):
@@ -32,19 +36,18 @@ def initialize_gee() -> bool:
             credentials = ee.ServiceAccountCredentials(email=None, key_data=sa_json)
             ee.Initialize(credentials, project=project_id)
             return True
-        except Exception:
-            pass
+        except Exception as e:
+            st.warning(f"GEE JSON auth failed: {e}")
 
     # Format 2: email + private key terpisah
-    sa_email = os.getenv("GEE_SERVICE_ACCOUNT")
-    sa_key = os.getenv("GEE_PRIVATE_KEY")
+    sa_email = secrets.get("GEE_SERVICE_ACCOUNT") or os.getenv("GEE_SERVICE_ACCOUNT")
     if sa_email and sa_key and not sa_email.strip().startswith("{"):
         try:
             credentials = ee.ServiceAccountCredentials(email=sa_email, key_data=sa_key)
             ee.Initialize(credentials, project=project_id)
             return True
-        except Exception:
-            pass
+        except Exception as e:
+            st.warning(f"GEE split auth failed: {e}")
 
     try:
         ee.Initialize(project=GEE_PROJECT)
