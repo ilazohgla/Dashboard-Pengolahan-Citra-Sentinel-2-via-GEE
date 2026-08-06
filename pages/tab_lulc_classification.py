@@ -39,12 +39,22 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
         icon="ℹ️",
     )
 
-    # Dapatkan resolusi nominal asli citra (untuk Sentinel-2 aslinya adalah 10m)
+    # ── Resolusi asli citra ──────────────────────────────────────────────
+    # CATATAN PENTING: nominalScale() pada composite hasil median()+clip()
+    # KADANG melaporkan grid EPSG:4326 (geografis) alih-alih proyeksi UTM
+    # native — nilainya ~111319 m (= 1 derajat) untuk Sentinel-2 yang
+    # seharusnya 10 m. Terima hanya nilai wajar 2–120 m; di luar itu fallback
+    # ke resolusi native satelit yang diketahui (S2 = 10 m, Landsat = 30 m).
     try:
-        classification_scale = int(composite.select("B2").projection().nominalScale().getInfo())
+        raw_scale = float(composite.select("B2").projection().nominalScale().getInfo())
     except Exception:
-        classification_scale = 10
-    
+        raw_scale = 0.0
+
+    native_by_sat = {"S2": 10, "L8": 30, "L9": 30}
+    classification_scale = native_by_sat.get(satellite, 10)
+    if 2 <= raw_scale <= 120:
+        classification_scale = int(round(raw_scale))
+
     st.info(f"📐 **Resolusi Asli Citra Terdeteksi:** {classification_scale} m/piksel (Menggunakan ukuran asli GEE tanpa modifikasi/resampling).")
     col1, col2, col3 = st.columns(3)
 
