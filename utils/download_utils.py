@@ -153,7 +153,10 @@ def fetch_geotiff_bytes(download_url: str, timeout: int = 180) -> tuple[bytes | 
     if not is_tiff:
         detail = payload[:300].decode("utf-8", errors="replace").strip()
         return None, f"Earth Engine mengembalikan respons non-TIFF: {detail}"
-    if len(payload) < 512:
-        return None, f"GeoTIFF terlalu kecil ({len(payload)} byte), kemungkinan respons tidak lengkap."
+    # GeoTIFF kategorikal (mis. LULC satu kelas konstan) bisa sangat kecil
+    # dan tetap valid. Hanya tolak jika lebih kecil dari header TIFF minimal
+    # (8 byte), bukan 512 byte — threshold lama menolak file bagus.
+    if len(payload) < 8:
+        return None, f"GeoTIFF tidak valid ({len(payload)} byte), kemungkinan respons tidak lengkap."
     return payload, ""
 

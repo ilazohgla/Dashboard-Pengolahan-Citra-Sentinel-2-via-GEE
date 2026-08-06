@@ -449,11 +449,11 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
                         st.stop()
                     valid_pixels = int(sum(valid_pixel_count.values()))
                     roi_area_m2 = float(result_roi.area(maxError=1).getInfo() or 0)
-                    estimated_pixels_30m = max(1, int(roi_area_m2 / 900))
+                    estimated_pixels_native = max(1, int(roi_area_m2 / (classification_scale * classification_scale)))
                     st.caption(
                         f"Piksel valid LULC: {valid_pixels:,} · "
                         f"Luas AOI: {roi_area_m2 / 1e6:.4f} km² · "
-                        f"Estimasi piksel 30 m: {estimated_pixels_30m:,}"
+                        f"Estimasi piksel {classification_scale} m: {estimated_pixels_native:,}"
                     )
                     if valid_pixels < 4:
                         st.error(
@@ -503,24 +503,40 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
                     )
                     geotiff_data = None
                     download_error = ""
-                    # Coba resolusi asli dulu; fallback 30 m hanya jika GEE menolak
-                    # area besar (getDownloadURL maks ~32 MB / ~100 km²).
-                    for scale in (export_scale, 30):
-                        download_url = get_geotiff_raw_url(
-                            lulc_export, band_name=None, roi_geom=result_roi,
-                            scale=scale, crs=None, format_name="GEO_TIFF"
+                    # ── Estimasi piksel pada resolusi asli ────────────────
+                    # getDownloadURL GEE dibatasi ~32 MB / ~1e8 piksel.
+                    # Pada 10 m, limit itu ≈ 100 km². Jika AOI melewatinya,
+                    # 10 m TIDAK mungkin via download langsung — langsung
+                    # arahkan ke Export Drive (scale 10 m, tanpa batas),
+                    # jangan diam-diam turun ke 30 m yang grid-nya beda.
+                    roi_area_m2 = float(result_roi.area(maxError=1).getInfo() or 0)
+                    est_px_10m = roi_area_m2 / (export_scale * export_scale)
+                    DOWNLOAD_PX_LIMIT = 1e8  # batas aman getDownloadURL
+                    if est_px_10m > DOWNLOAD_PX_LIMIT:
+                        st.warning(
+                            f"⚠️ AOI terlalu luas untuk download langsung pada {export_scale} m "
+                            f"(estimasi {est_px_10m / 1e6:.1f} juta piksel > batas GEE ±100 juta). "
+                            "Gunakan **Export ke Google Drive** — tetap resolusi asli, tanpa batas ukuran."
                         )
-                        if not download_url:
-                            continue
-                        geotiff_data, download_error = fetch_geotiff_bytes(download_url)
-                        if geotiff_data:
-                            st.success(
-                                f"✅ GeoTIFF valid siap diunduh pada resolusi {scale} m "
-                                f"({len(geotiff_data) / 1024:.1f} KB)."
+                        download_error = "AOI melebihi batas getDownloadURL pada resolusi asli."
+                    else:
+                        # Coba resolusi asli; fallback 30 m hanya jika GEE menolak.
+                        for scale in (export_scale, 30):
+                            download_url = get_geotiff_raw_url(
+                                lulc_export, band_name=None, roi_geom=result_roi,
+                                scale=scale, crs=None, format_name="GEO_TIFF"
                             )
-                            break
-                        if scale == export_scale:
-                            st.warning("⚠️ Download resolusi asli gagal atau terlalu besar; mencoba fallback 30 m...")
+                            if not download_url:
+                                continue
+                            geotiff_data, download_error = fetch_geotiff_bytes(download_url)
+                            if geotiff_data:
+                                st.success(
+                                    f"✅ GeoTIFF valid siap diunduh pada resolusi {scale} m "
+                                    f"({len(geotiff_data) / 1024:.1f} KB)."
+                                )
+                                break
+                            if scale == export_scale:
+                                st.warning("⚠️ Download resolusi asli gagal atau terlalu besar; mencoba fallback 30 m...")
 
                     if geotiff_data:
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
