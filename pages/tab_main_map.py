@@ -16,10 +16,85 @@ import streamlit as st
 from streamlit_folium import st_folium
 from folium.plugins import Draw, Fullscreen, MeasureControl
 
-from config import LAYER_CONFIG
+from config import LAYER_CONFIG, S2_BANDS, S2_BAND_LABELS, FALSE_COLOR_PRESETS
 from utils.map_utils import base_map, add_ee_layer
 from utils.geo_utils import geojson_to_ee
 from utils.download_utils import get_download_url, get_geotiff_raw_url
+
+
+def _resolve_false_color_vis() -> tuple:
+    """Kembalikan (bands, vis) kombinasi False Color aktif dari session state.
+
+    Preferensi: kombinasi custom user > preset terpilih > default LAYER_CONFIG.
+    """
+    fc_bands = st.session_state.get("fc_bands")
+    fc_vis = st.session_state.get("fc_vis")
+    if fc_bands and fc_vis:
+        return fc_bands, fc_vis
+    return None, None
+
+
+def _render_false_color_picker() -> None:
+    """Panel pemilih kombinasi band False Color (preset / custom R-G-B)."""
+    st.markdown("#### 🎨 False Color — Kombinasi Band")
+    preset_names = list(FALSE_COLOR_PRESETS.keys())
+    options = preset_names + ["⚙️ Custom (pilih band manual)…"]
+    current = st.session_state.get("fc_preset", preset_names[0])
+    if current not in options:
+        current = preset_names[0]
+    choice = st.selectbox("Pilih kombinasi:", options, index=options.index(current), key="fc_preset")
+
+    if choice == "⚙️ Custom (pilih band manual)…":
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            r_band = st.selectbox(
+                "🔴 Red (R)", S2_BANDS,
+                format_func=lambda b: S2_BAND_LABELS.get(b, b),
+                index=6,  # B8 (NIR)
+                key="fc_r",
+            )
+        with c2:
+            g_band = st.selectbox(
+                "🟢 Green (G)", S2_BANDS,
+                format_func=lambda b: S2_BAND_LABELS.get(b, b),
+                index=2,  # B4 (Red)
+                key="fc_g",
+            )
+        with c3:
+            b_band = st.selectbox(
+                "🔵 Blue (B)", S2_BANDS,
+                format_func=lambda b: S2_BAND_LABELS.get(b, b),
+                index=1,  # B3 (Green)
+                key="fc_b",
+            )
+
+        vc1, vc2, vc3 = st.columns(3)
+        with vc1:
+            fc_min = st.slider("Min", 0.0, 1.0, 0.0, 0.05, key="fc_min")
+        with vc2:
+            fc_max = st.slider("Max", 0.0, 1.5, 0.4, 0.05, key="fc_max")
+        with vc3:
+            fc_gamma = st.slider("Gamma", 0.5, 3.0, 1.4, 0.1, key="fc_gamma")
+
+        bands = [r_band, g_band, b_band]
+        vis = {"bands": bands, "min": fc_min, "max": fc_max, "gamma": fc_gamma}
+        st.session_state["fc_bands"] = bands
+        st.session_state["fc_vis"] = vis
+        st.caption(
+            "💡 Kombinasi umum: **NIR-Red-Green** (B8,B4,B3) untuk vegetasi merah; "
+            "**SWIR1-NIR-Blue** (B11,B8,B2) untuk pertanian; **SWIR2-SWIR1-Blue** "
+            "(B12,B11,B2) untuk geologi. Band indeks (NDVI/NDWI/NDBI) bisa "
+            "dipakai sebagai salah satu kanal."
+        )
+    else:
+        preset = FALSE_COLOR_PRESETS[choice]
+        st.session_state["fc_bands"] = preset["bands"]
+        st.session_state["fc_vis"] = preset["vis"]
+        st.info(f"**{choice}** — {preset['desc']}")
+        st.caption(
+            "Kombinasi: R=" + ", ".join(preset["bands"]) + " · "
+            f"vis {preset['vis']['min']}–{preset['vis']['max']} (gamma {preset['vis']['gamma']})"
+        )
 
 
 def render_tab_main_map(
@@ -52,14 +127,25 @@ def render_tab_main_map(
             list(LAYER_CONFIG.keys()),
             default=["True Color", "NDVI"],
         )
+        if "False Color" in layers_active:
+            _render_false_color_picker()
 
     # ── Bangun peta utama ─────────────────────────────────────────────────────
     Map1 = base_map(center_lat, center_lon, zoom=12)
 
     for lname in layers_active:
         cfg = LAYER_CONFIG[lname]
-        img = composite.select(cfg["band"]) if cfg["band"] else composite
-        add_ee_layer(Map1, img, cfg["vis"], f"{cfg['icon']} {lname}")
+        if lname == "False Color":
+            fc_bands, fc_vis = _resolve_false_color_vis()
+            if fc_bands and fc_vis:
+                img = composite.select(fc_bands)
+                add_ee_layer(Map1, img, fc_vis, f"{cfg['icon']} {lname}")
+            else:
+                img = composite.select(cfg["band"]) if cfg["band"] else composite
+                add_ee_layer(Map1, img, cfg["vis"], f"{cfg['icon']} {lname}")
+        else:
+            img = composite.select(cfg["band"]) if cfg["band"] else composite
+            add_ee_layer(Map1, img, cfg["vis"], f"{cfg['icon']} {lname}")
 
     # Tampilkan AOI yang sudah dikonfirmasi
     if st.session_state.get("aoi_geojson"):
@@ -158,17 +244,36 @@ def render_tab_main_map(
         with dl_cols[i]:
             if st.button(f"{cfg['icon']} {lname}", key=f"dl_{lname}", width="stretch"):
                 with st.spinner(f"Menyiapkan {lname}..."):
-                    img_dl = composite.select(cfg["band"]) if cfg["band"] else composite
+
+                    # False Color custom → pakai kombinasi band aktif
+                    if lname == "False Color":
+                        fc_bands, fc_vis = _resolve_false_color_vis()
+                    else:
+                        fc_bands, fc_vis = None, None
 
                     if dl_format == "PNG (preview)":
-                        url = get_download_url(img_dl, cfg["vis"], roi, scale=dl_scale, fmt="png")
+                        if fc_bands is not None:
+                            img_dl = composite.select(fc_bands)
+                            vis_dl = fc_vis
+                        else:
+                            img_dl = composite.select(cfg["band"]) if cfg["band"] else composite
+                            vis_dl = cfg["vis"]
+                        url = get_download_url(img_dl, vis_dl, roi, scale=dl_scale, fmt="png")
                         label, color = f"PNG – {lname}", "#1a6b3c"
                     elif dl_format == "GeoTIFF – Visualisasi RGB":
-                        url = get_download_url(img_dl, cfg["vis"], roi, scale=dl_scale, fmt="geotiff")
+                        if fc_bands is not None:
+                            img_dl = composite.select(fc_bands)
+                            vis_dl = fc_vis
+                        else:
+                            img_dl = composite.select(cfg["band"]) if cfg["band"] else composite
+                            vis_dl = cfg["vis"]
+                        url = get_download_url(img_dl, vis_dl, roi, scale=dl_scale, fmt="geotiff")
                         label, color = f"GeoTIFF RGB – {lname}", "#1a5276"
                     else:
                         band = cfg["band"]
-                        if band is None:
+                        if fc_bands is not None:
+                            url = get_geotiff_raw_url(composite.select(fc_bands), None, roi, scale=dl_scale)
+                        elif band is None:
                             bands = cfg["vis"].get("bands", ["B4", "B3", "B2"])
                             url = get_geotiff_raw_url(composite.select(bands), None, roi, scale=dl_scale)
                         else:
