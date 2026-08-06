@@ -166,6 +166,7 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
                             st.stop()
 
                         st.success("✅ K-Means klasifikasi selesai.")
+                        st.session_state.pop("lulc_classifier", None)  # tidak ada RF → importance tak relevan
 
                     # ── Supervised Methods ────────────────────────────────
                     else:
@@ -174,9 +175,10 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
                         feature_img = build_feature_image(composite, satellite, roi)
 
                         # Classify
+                        result_classifier = None
                         if method == "KNN Supervised":
                             st.info(f"🔍 Training KNN (k={k_value}) dengan {samples_per_class} samples/kelas...")
-                            lulc_result, accuracy, _ = classify_supervised(
+                            lulc_result, accuracy, _, _ = classify_supervised(
                                 feature_img,
                                 roi,
                                 satellite,
@@ -189,7 +191,7 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
                             st.info(
                                 f"🌲 Training Random Forest ({num_trees} trees) dengan {samples_per_class} samples/kelas..."
                             )
-                            lulc_result, accuracy, _ = classify_supervised(
+                            lulc_result, accuracy, _, result_classifier = classify_supervised(
                                 feature_img,
                                 roi,
                                 satellite,
@@ -203,7 +205,7 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
                             st.info(
                                 f"⭐ Training Ensemble (KNN k={k_value} + RF {num_trees} trees) dengan {samples_per_class} samples/kelas..."
                             )
-                            lulc_result, accuracy, _ = classify_supervised(
+                            lulc_result, accuracy, _, result_classifier = classify_supervised(
                                 feature_img,
                                 roi,
                                 satellite,
@@ -213,6 +215,8 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
                                 samples_per_class=samples_per_class,
                                 bag_fraction=bag_fraction,
                             )
+
+                        st.session_state["lulc_classifier"] = result_classifier
 
                         st.success(f"✅ {method} klasifikasi selesai.")
 
@@ -256,6 +260,7 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
                     st.session_state["lulc_accuracy"] = accuracy
                     st.session_state["lulc_areas"] = areas
                     st.session_state["show_accuracy"] = show_accuracy
+                    st.session_state["show_variable_importance"] = show_variable_importance
                     st.session_state.pop("lulc_geotiff_data", None)
                     st.session_state.pop("lulc_geotiff_filename", None)
 
@@ -355,6 +360,37 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
                 st.success(
                     f"✅ Akurasi {'baik' if oa > 75 else 'sedang' if oa > 60 else 'rendah'}."
                 )
+
+        # ── Variable Importance (RF / Ensemble) ─────────────────────────
+        # Port dari JS: classifier.explain().get('importance') — seberapa
+        # besar kontribusi tiap band fitur terhadap keputusan Random Forest.
+        if st.session_state.get("show_variable_importance", False):
+            clf = st.session_state.get("lulc_classifier")
+            if clf is not None:
+                with st.spinner("🌲 Mengambil variable importance RF..."):
+                    try:
+                        imp_dict = ee.Dictionary(clf.explain().get("importance")).getInfo() or {}
+                        if imp_dict:
+                            st.subheader("📊 Variable Importance (Random Forest)")
+                            imp_rows = sorted(
+                                imp_dict.items(), key=lambda kv: kv[1], reverse=True
+                            )
+                            imp_df = pd.DataFrame(
+                                [
+                                    {"Band": k, "Importance": float(v)}
+                                    for k, v in imp_rows
+                                ]
+                            )
+                            st.dataframe(imp_df, width="stretch", hide_index=True)
+                            st.caption(
+                                "Nilai lebih tinggi = fitur lebih berpengaruh dalam klasifikasi."
+                            )
+                        else:
+                            st.info("Variable importance kosong untuk model ini.")
+                    except Exception as imp_err:
+                        st.warning(f"Variable importance tidak dapat diambil: {imp_err}")
+            elif "Random Forest" in method or "Ensemble" in method:
+                st.info("Klasifikasi belum dijalankan — variable importance tampil setelah klasifikasi.")
 
         # ── Tampilkan area per kelas ──────────────────────────────────
         st.subheader("📐 Luas Penggunaan Lahan per Kelas")

@@ -227,14 +227,49 @@ def create_auto_training_samples(
 # 3. K-MEANS CLASSIFICATION
 # ═════════════════════════════════════════════════════════════════════════════
 
+def _hierarchical_lulc(composite, sat: str, roi) -> ee.Image:
+    """Re-label hierarkis spektral → kelas LULC bermakna (1-7).
+
+    Port dari JS (dashboard GEE): setelah clustering, label di-assign ulang
+    berdasarkan heuristik NDVI/NDWI/NDBI (dengan NDBI yang benar = SWIR-NIR).
+    Skema kelas mengikuti LULC Python 1-7:
+      1 Built-up, 2 Cropland, 3 Forest, 4 Water, 5 Bare Land,
+      6 Shrub/Grass, 7 Wetland.
+    """
+    is_landsat = sat in ("L8", "L9")
+    if is_landsat:
+        ndvi = composite.normalizedDifference(["SR_B5", "SR_B4"])
+        ndwi = composite.normalizedDifference(["SR_B3", "SR_B5"])
+        ndbi = composite.normalizedDifference(["SR_B6", "SR_B5"])
+    else:
+        ndvi = composite.normalizedDifference(["B8", "B4"])
+        ndwi = composite.normalizedDifference(["B3", "B8"])
+        ndbi = composite.normalizedDifference(["B11", "B8"])
+
+    # Default: Shrub/Grass (6). Urutan where penting — kelas paling spesifik
+    # dulu agar tidak ditindih (beginilah logika JS).
+    mapped = ee.Image.constant(6).clip(roi)
+    mapped = mapped.where(ndwi.gt(0.3), 4)                                            # Water
+    mapped = mapped.where(ndwi.gt(0.05).And(ndwi.lte(0.3)).And(ndvi.lt(0.2)), 7)      # Wetland
+    mapped = mapped.where(ndvi.gt(0.6), 3)                                            # Forest
+    mapped = mapped.where(ndvi.gte(0.4).And(ndvi.lte(0.6)), 2)                        # Cropland
+    mapped = mapped.where(ndvi.gt(0.15).And(ndvi.lt(0.4)), 6)                          # Shrub/Grass
+    mapped = mapped.where(ndvi.lt(0.1).And(ndbi.lt(0.05)), 5)                         # Bare Land
+    mapped = mapped.where(ndbi.gt(0.05).And(ndvi.lt(0.2)), 1)                         # Built-up
+    return mapped.rename("LULC").toInt()
+
+
 def classify_kmeans(
     composite: ee.Image,
     roi: ee.Geometry,
     satellite: str,
     num_clusters: int = 7,
 ) -> ee.Image:
-    """
-    K-Means unsupervised classification dengan post-processing heuristik spektral.
+    """K-Means unsupervised + re-labeling hierarkis spektral (1-7).
+
+    Tidak seperti K-Means murni (label klaster arbitrer), hasil akhir
+    dire-label ulang ke kelas LULC yang bermakna via heuristik NDVI/NDWI/NDBI
+    (portir dari dashboard GEE JS). Pixel tanpa cluster tetap masked → NoData.
     """
     is_landsat = satellite in ["L8", "L9"]
 
@@ -257,22 +292,26 @@ def classify_kmeans(
         st.error("❌ Tidak ada pixel valid untuk training K-Means di AOI ini. Perbesar AOI atau perluas rentang tanggal.")
         return ee.Image.constant(0).rename("LULC").clip(roi).toUint8()
 
-    # K-Means clustering
+    # K-Means clustering (klaster 0..k-1)
     clusterer = ee.Clusterer.wekaKMeans(num_clusters).train(sample)
-    clusters = input_img.cluster(clusterer).rename("cluster")
+    clusters = input_img.cluster(clusterer).rename("cluster").clip(roi)
 
-    # Biarkan pixel NoData tetap masked (tidak di-unmask ke 0) supaya area
-    # tanpa data transparan di basemap. Saat export, NoData diisi 0.
-    #
-    # wekaKMeans menghasilkan label cluster 0..k-1; geser +1 jadi 1..7 agar
-    # selaras dengan skema kelas LULC (1-7, tanpa class 0).
-    return (
-        clusters.rename("LULC")
-        .clip(roi)
-        .round()
-        .toInt()
-        .add(1)
-    )
+    # Re-label hierarki spektral (kelas LULC 1-7)
+    heuristic = _hierarchical_lulc(composite, satellite, roi)
+
+    # Assign ke setiap klaster kelas spektral yang DOMINAN di dalamnya, lalu
+    # aplikasikan ke seluruh piksel klaster itu. = "K-Means + re-labeling".
+    try:
+        joined = heuristic.addBands(clusters.rename("cluster"))
+        relabeled = joined.reduceConnectedComponents(
+            reducer=ee.Reducer.mode(), labelBand="cluster", maxSize=8 * num_clusters
+        )
+        result = relabeled.select("LULC").clip(roi).toInt().rename("LULC")
+    except Exception:
+        # Fallback: pakai heuristik per-piksel bila re-label GEE gagal.
+        result = heuristic.clip(roi).rename("LULC")
+
+    return result
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -291,7 +330,8 @@ def classify_supervised(
 ) -> tuple:
     """
     Klasifikasi supervised dengan KNN, Random Forest, atau Ensemble.
-    Returns: (classified_image, accuracy_dict, feature_bands)
+    Returns: (classified_image, accuracy_dict, feature_bands, classifier)
+      classifier = ee.Classifier (RF) utk variable importance; None utk KNN.
     """
     # Generate training data otomatis
     training_fc = create_auto_training_samples(feature_image, roi, samples_per_class)
@@ -364,7 +404,7 @@ def classify_supervised(
             "num_trees": num_trees,
         }
 
-        return classified, accuracy_dict, feature_bands
+        return classified, accuracy_dict, feature_bands, clf_rf
 
     # Klasifikasi
     classified = feature_image.classify(classifier).clip(roi).rename("LULC").byte()
@@ -384,7 +424,8 @@ def classify_supervised(
         "num_trees": num_trees if method in ["randomforest", "ensemble"] else None,
     }
 
-    return classified, accuracy_dict, feature_bands
+    # classifier dikembalikan untuk variable importance (hanya RF)
+    return classified, accuracy_dict, feature_bands, classifier
 
 
 # ═════════════════════════════════════════════════════════════════════════════
