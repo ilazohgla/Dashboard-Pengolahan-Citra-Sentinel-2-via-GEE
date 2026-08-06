@@ -97,7 +97,15 @@ def get_s2_composite(roi_json: dict, start, end, cloud_pct: int):
     count = col.size().getInfo()
     if count == 0:
         return None, 0
-    return col.median().clip(roi_geom), count
+
+    # ── Isi lubang NoData dengan mean (port dari JS dashboard GEE) ─────────
+    # Median komposit masih menyisakan pixel NoData (bekas awan/mask QA60).
+    # Di dashboard pixel itu tampak transparan di atas basemap, tapi saat
+    # download GeoTIFF jadi LUBANG. Dengan unmask(mean), pixel kosong diisi
+    # nilai rata-rata komposit → hasil klasifikasi & download penuh/konsisten.
+    median_img = col.median()
+    mean_img = col.mean()
+    return median_img.unmask(mean_img).clip(roi_geom), count
 
 
 def add_indices(img: ee.Image) -> ee.Image:

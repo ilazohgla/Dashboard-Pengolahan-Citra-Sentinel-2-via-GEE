@@ -27,6 +27,31 @@ from utils.map_utils import add_ee_layer, base_map, add_roi_layer, add_legend
 from utils.geo_utils import get_centroid, utm_epsg_from_latlon
 from utils.download_utils import get_download_url, get_geotiff_raw_url, fetch_geotiff_bytes
 
+# ── Schema version hasil klasifikasi ─────────────────────────────────────────
+# Naikkan saat skema kelas / struktur hasil berubah (mis. renumber 0-6 → 1-7).
+# Hasil LULC yang disimpan di session state dari versi LAMA (kelas 0-6) akan
+# dibuang otomatis supaya tabel & download tidak menampilkan data basi.
+LULC_SCHEMA_VERSION = 2  # v2 = kelas 1-7 + komposit unmask(mean)
+
+_LULC_KEYS = [
+    "lulc_result", "lulc_roi", "lulc_roi_json", "lulc_accuracy", "lulc_areas",
+    "lulc_classifier", "show_accuracy", "show_variable_importance",
+    "lulc_geotiff_data", "lulc_geotiff_filename", "classification_result_method",
+]
+
+
+def _invalidate_stale_lulc() -> bool:
+    """Buang hasil LULC dari session state jika schema-nya outdated.
+
+    Returns True jika ada data lama yang dibuang (user perlu klasifikasi ulang).
+    """
+    if st.session_state.get("lulc_schema_version") != LULC_SCHEMA_VERSION:
+        for k in _LULC_KEYS:
+            st.session_state.pop(k, None)
+        st.session_state["lulc_schema_version"] = LULC_SCHEMA_VERSION
+        return True
+    return False
+
 
 def _resolve_native_scale(composite, satellite: str) -> int:
     """Kembalikan resolusi native citra (m/piksel) dengan bounds-check.
@@ -47,7 +72,18 @@ def _resolve_native_scale(composite, satellite: str) -> int:
 def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon):
     """Render Tab 3: LULC Classification"""
 
+    # Buang hasil LULC lama (kelas 0-6) dari session state jika skema berubah,
+    # supaya tabel & download tidak menampilkan data basi yang tidak sinkron.
+    stale = _invalidate_stale_lulc()
+
     st.subheader("🗺️ Klasifikasi LULC (Land Use Land Cover)")
+
+    if stale:
+        st.warning(
+            "🔄 Versi klasifikasi LULC diperbarui (kelas kini 1–7, NoData=0). "
+            "Hasil lama dibuang — **jalankan klasifikasi ulang** untuk hasil "
+            "yang konsisten antara peta dan download GeoTIFF."
+        )
 
     st.info(
         "📊 **7 Kelas LULC:** Built-up, Cropland, Forest, Water, Bare Land, Shrub/Grassland, Wetland\n"
@@ -261,6 +297,7 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
                     st.session_state["lulc_areas"] = areas
                     st.session_state["show_accuracy"] = show_accuracy
                     st.session_state["show_variable_importance"] = show_variable_importance
+                    st.session_state["lulc_schema_version"] = LULC_SCHEMA_VERSION
                     st.session_state.pop("lulc_geotiff_data", None)
                     st.session_state.pop("lulc_geotiff_filename", None)
 
@@ -399,7 +436,7 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
         area_data = []
         area_values_for_chart = []
         for class_id in range(1, 8):  # kelas LULC 1-7
-            area_val = areas[class_id]
+            area_val = areas.get(class_id)  # .get() agar aman dari dict tak lengkap
             try:
                 raw = area_val.getInfo() if area_val else 0
                 area_float = float(raw or 0)
