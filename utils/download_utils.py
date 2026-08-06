@@ -12,6 +12,9 @@ Batasan GEE:
 """
 
 import ee
+import io
+import zipfile
+import requests
 from config import DEFAULT_SCALE, MAX_THUMB_DIM
 
 
@@ -63,7 +66,8 @@ def get_download_url(
                 "format":     fmt,
             })
 
-    except Exception:
+    except Exception as e:
+        print(f"DEBUG: Error generating URL: {e}")
         return None
 
 
@@ -72,6 +76,8 @@ def get_geotiff_raw_url(
     band_name: str | None,
     roi_geom: ee.Geometry,
     scale: int = DEFAULT_SCALE,
+    crs: str | None = None,
+    format_name: str = "GEO_TIFF",
 ) -> str | None:
     """
     Hasilkan URL download GeoTIFF dengan nilai mentah float/int.
@@ -84,19 +90,69 @@ def get_geotiff_raw_url(
                                    None = unduh semua band yang ada
     roi_geom   : ee.Geometry     – batas area of interest
     scale      : int             – resolusi spasial dalam meter/piksel
+    crs        : str | None      – sistem koordinat proyeksi (misal 'EPSG:32648' / 'EPSG:4326')
 
     Returns
     -------
     str | None  – URL download, atau None jika gagal
     """
     try:
-        region = roi_geom.bounds().getInfo()["coordinates"]
+        # Pakai geometri AOI asli agar hasil tidak bergeser ke bounding box.
+        # Jika geometry terlalu besar, EE akan mengembalikan error dan UI memberi
+        # fallback/anjuran Export ke Drive, bukan membuat file kosong.
+        region_info = roi_geom.getInfo()
+        # getDownloadURL accepts a geometry object; preserve the exact AOI.
+        region = region_info
         img_to_dl = ee_image if band_name is None else ee_image.select(band_name)
-        return img_to_dl.getDownloadURL({
+        
+        if crs is None:
+                crs = "EPSG:4326"
+
+        # Gunakan format ini untuk stabilitas lebih baik
+        params = {
             "region": region,
             "scale":  scale,
-            "format": "GEO_TIFF",
-            "crs":    "EPSG:4326",
-        })
-    except Exception:
+            "format": format_name,
+            "crs":    crs,
+            "filePerBand": False,
+        }
+        return img_to_dl.getDownloadURL(params)
+    except Exception as e:
+        print(f"DEBUG: Error generating URL: {e}")
         return None
+
+
+def fetch_geotiff_bytes(download_url: str, timeout: int = 180) -> tuple[bytes | None, str]:
+    """Fetch one valid GeoTIFF from an Earth Engine download URL.
+
+    Accepts direct TIFF or ZIP-wrapped TIFF and rejects tiny metadata-only files.
+    """
+    try:
+        response = requests.get(download_url, timeout=timeout)
+        response.raise_for_status()
+        payload = response.content
+    except requests.RequestException as exc:
+        return None, f"Request ke Earth Engine gagal: {exc}"
+
+    if zipfile.is_zipfile(io.BytesIO(payload)):
+        try:
+            with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+                tif_names = [
+                    name for name in archive.namelist()
+                    if name.lower().endswith((".tif", ".tiff"))
+                ]
+                if not tif_names:
+                    return None, "Respons Earth Engine berupa ZIP tetapi tidak berisi GeoTIFF."
+                name = max(tif_names, key=lambda item: archive.getinfo(item).file_size)
+                payload = archive.read(name)
+        except (zipfile.BadZipFile, KeyError) as exc:
+            return None, f"ZIP GeoTIFF tidak valid: {exc}"
+
+    is_tiff = payload[:4] in (b"II*\x00", b"MM\x00*")
+    if not is_tiff:
+        detail = payload[:300].decode("utf-8", errors="replace").strip()
+        return None, f"Earth Engine mengembalikan respons non-TIFF: {detail}"
+    if len(payload) < 512:
+        return None, f"GeoTIFF terlalu kecil ({len(payload)} byte), kemungkinan respons tidak lengkap."
+    return payload, ""
+

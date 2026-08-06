@@ -36,14 +36,17 @@ def render_tab_main_map(
 ) -> None:
     """Render seluruh konten Tab 1."""
 
-    # ── Metric bar ────────────────────────────────────────────────────────────
-    m1c, m2c, m3c = st.columns(3)
-    m1c.metric("📦 Scene", img_count)
-    m2c.metric("📅 Periode", f"{start_date} → {end_date}")
-    m3c.metric("☁️ Awan Maks", f"{max_cloud}%")
+    # ── Header status ─────────────────────────────────────────────────────────
+    st.markdown('<span class="status-pill">● LIVE GEE COMPOSITE</span>', unsafe_allow_html=True)
+    st.markdown("### Peta utama dan analisis indeks")
+    m1c, m2c, m3c, m4c = st.columns(4)
+    m1c.metric("Scene tersedia", img_count)
+    m2c.metric("Periode analisis", f"{start_date} → {end_date}")
+    m3c.metric("Batas awan", f"{max_cloud}%")
+    m4c.metric("Mode AOI", "Polygon" if "Gambar" in aoi_mode else "Shapefile")
 
-    # ── Pilih layer ───────────────────────────────────────────────────────────
-    with st.expander("🎛️ Pilih Layer & Opsi Peta", expanded=True):
+    # ── Pilih layer & opsi peta ───────────────────────────────────────────────
+    with st.expander("🎛️ Layer, visualisasi, dan tools peta", expanded=True):
         layers_active = st.multiselect(
             "Layer aktif:",
             list(LAYER_CONFIG.keys()),
@@ -94,7 +97,7 @@ def render_tab_main_map(
     map_result = st_folium(
         Map1,
         height=640,
-        use_container_width=True,
+        width="stretch",
         returned_objects=["all_drawings", "last_active_drawing"],
         key="main_map",
     )
@@ -153,7 +156,7 @@ def render_tab_main_map(
     dl_cols = st.columns(len(LAYER_CONFIG))
     for i, (lname, cfg) in enumerate(LAYER_CONFIG.items()):
         with dl_cols[i]:
-            if st.button(f"{cfg['icon']} {lname}", key=f"dl_{lname}", use_container_width=True):
+            if st.button(f"{cfg['icon']} {lname}", key=f"dl_{lname}", width="stretch"):
                 with st.spinner(f"Menyiapkan {lname}..."):
                     img_dl = composite.select(cfg["band"]) if cfg["band"] else composite
 

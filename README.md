@@ -153,7 +153,75 @@ Browser akan otomatis terbuka di `http://localhost:8501`. 🎉
 
 ## 🗺️ Cara Penggunaan
 
-### Menentukan Area of Interest (AOI)
+### Tab 3: Klasifikasi LULC (Land Use Land Cover)
+
+Dashboard sekarang mendukung **klasifikasi LULC dengan 7 kelas** menggunakan berbagai metode machine learning:
+
+#### Metode Klasifikasi
+
+| Metode | Tipe | Keunggulan | Kelemahan |
+|---|---|---|---|
+| **K-Means** | Unsupervised | Otomatis, cepat, tanpa training data | Akurasi sedang, hasil bisa bervariasi |
+| **KNN** | Supervised | Akurasi baik untuk batas kelas jelas | Sensitif terhadap noise, lambat |
+| **Random Forest** | Supervised | Akurasi tinggi, robust | Training data perlu tersedia |
+| **KNN + RF Ensemble ⭐** | Supervised | **Akurasi tertinggi**, robust, optimal | Lebih lambat, butuh resources lebih besar |
+
+#### 7 Kelas LULC
+
+1. 🏢 **Built-up** (Area Terbangun) – Bangunan, infrastruktur
+2. 🌾 **Cropland** (Lahan Pertanian) – Sawah, ladang, perkebunan
+3. 🌳 **Forest** (Hutan) – Vegetasi lebat, hutan
+4. 💧 **Water** (Perairan) – Sungai, danau, tambak
+5. 🪨 **Bare Land** (Lahan Terbuka) – Tanah kosong, pasir
+6. 🌱 **Shrub & Grassland** (Semak/Padang Rumput) – Vegetasi rendah
+7. 🏞️ **Wetland** (Lahan Basah) – Rawa, wetland
+
+#### Fitur Engineering
+
+Setiap piksel dianalisis menggunakan:
+- **6 Band Reflektansi** dasar (B2-B7 Sentinel-2 / SR_B2-SR_B7 Landsat)
+- **7 Indeks Spektral**:
+  - **NDVI** – Normalized Difference Vegetation Index
+  - **NDWI** – Normalized Difference Water Index
+  - **NDBI** – Normalized Difference Built-up Index
+  - **MNDWI** – Modified Normalized Difference Water Index
+  - **EVI** – Enhanced Vegetation Index
+  - **SAVI** – Soil-Adjusted Vegetation Index
+  - **BSI** – Bare Soil Index
+
+#### Cara Penggunaan LULC
+
+1. **Buka Tab 3** – "🗺️ Klasifikasi LULC"
+2. **Pilih Metode Klasifikasi**:
+   - Untuk eksplorasi awal → K-Means (cepat)
+   - Untuk akurasi tinggi → Ensemble KNN+RF ⭐
+3. **Atur Parameter** (untuk Supervised):
+   - **K Value** (KNN): Jumlah tetangga terdekat (default 5)
+   - **Jumlah Trees** (RF): Jumlah decision trees (default 100)
+   - **Training Samples**: Sampel per kelas untuk training (default 150)
+4. **Jalankan Klasifikasi** → tunggu 1-3 menit
+5. **Lihat Hasil**:
+   - Peta LULC dengan warna berbeda per kelas
+   - Confusion Matrix & akurasi (jika Supervised)
+   - Luas penggunaan lahan per kelas (km²)
+6. **Export ke Drive** – Simpan hasil untuk analisis lanjutan
+
+#### Tips Optimal
+
+- **Sample Size ≥ 150/kelas** untuk akurasi baik
+- **AOI ≥ 300 km²** untuk hasil yang representative
+- **Gunakan Ensemble** jika perlu akurasi tertinggi
+- **K-Means** cocok untuk eksplorasi cepat area luas
+
+#### Output LULC
+
+- 📊 **GeoTIFF** – Raster 30m resolution, 7 kelas, georeferenced
+- 📈 **Confusion Matrix** – Akurasi per kelas (untuk Supervised)
+- 📐 **Area Report** – Luas per kelas dalam km² (untuk perencanaan)
+
+---
+
+
 
 Dashboard menyediakan dua cara untuk menentukan AOI:
 

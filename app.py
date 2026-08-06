@@ -19,6 +19,7 @@
 """
 
 import ee
+import json
 import streamlit as st
 from datetime import date, timedelta
 
@@ -27,6 +28,7 @@ from utils.gee_utils import initialize_gee, get_s2_composite, add_indices
 from utils.geo_utils import geojson_to_ee, get_centroid, shapefile_to_ee, GEOPANDAS_OK
 from pages.tab_main_map import render_tab_main_map
 from pages.tab_split_panel import render_tab_split_panel
+from pages.tab_lulc_classification import render_tab_lulc
 
 # ──────────────────────────────────────────────────────────────────────────────
 # PAGE CONFIG
@@ -43,17 +45,41 @@ st.set_page_config(
 # ──────────────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-    .main-header{font-size:1.8rem;font-weight:700;color:#1a6b3c;text-align:center;padding:.4rem 0 .2rem 0}
-    .sub-header{font-size:.85rem;color:#6c757d;text-align:center;margin-bottom:.8rem}
-    .block-container{padding-top:1rem!important;padding-bottom:0!important}
-    .stTabs [data-baseweb="tab"]{font-weight:600}
+    :root{--bg:#07131b;--panel:#0d202a;--panel-2:#102b35;--ink:#e7f6f4;--muted:#8aa7ad;--line:#1c4650;--cyan:#39d9e6;--lime:#b8f35b;--pink:#ef6db2}
+    html,body,[data-testid="stAppViewContainer"],[data-testid="stApp"]{background:radial-gradient(circle at 78% -10%,#123844 0,#07131b 42%,#050d13 100%);color:var(--ink)}
+    [data-testid="stHeader"]{background:rgba(5,13,19,.88);border-bottom:1px solid rgba(57,217,230,.18)}
+    .block-container{max-width:1760px;padding:1.5rem 2.5rem 2.5rem!important}
+    .main-header{position:relative;display:flex;align-items:center;gap:.85rem;color:var(--ink);font-size:2.05rem;font-weight:800;letter-spacing:-.04em;padding:.25rem 0 0}
+    .main-header:before{content:'GEE';display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a5963,#39d9e6);color:#061218;font-size:.72rem;letter-spacing:.12em;border-radius:8px;width:52px;height:36px;box-shadow:0 0 22px rgba(57,217,230,.28)}
+    .main-header:after{content:'';position:absolute;left:0;bottom:-10px;width:190px;height:2px;background:linear-gradient(90deg,var(--cyan),transparent);box-shadow:0 0 12px rgba(57,217,230,.65)}
+    .sub-header{color:var(--muted);font-size:.86rem;margin:.6rem 0 1.3rem 3.9rem;letter-spacing:.02em}
+    [data-testid="stSidebar"]{background:linear-gradient(180deg,#091b24 0%,#07131b 100%);border-right:1px solid var(--line)}
+    [data-testid="stSidebar"] h2,[data-testid="stSidebar"] h3,[data-testid="stSidebar"] label,[data-testid="stSidebar"] p{color:var(--ink)}
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"]{color:var(--muted)}
+    [data-testid="stMetric"]{background:linear-gradient(145deg,rgba(16,43,53,.94),rgba(10,28,36,.94));border:1px solid var(--line);border-radius:12px;padding:.72rem .9rem;box-shadow:0 8px 24px rgba(0,0,0,.18),inset 0 1px rgba(255,255,255,.04)}
+    [data-testid="stMetricLabel"]{color:var(--muted)}
+    [data-testid="stMetricValue"]{color:var(--cyan)}
+    .stTabs [data-baseweb="tab-list"]{gap:.35rem;border-bottom:1px solid var(--line);background:rgba(7,19,27,.55);padding:.25rem .35rem;border-radius:12px 12px 0 0}
+    .stTabs [data-baseweb="tab"]{font-weight:700;padding:.8rem 1rem;color:var(--muted);border-radius:8px 8px 0 0}
+    .stTabs [aria-selected="true"]{color:var(--cyan)!important;background:rgba(57,217,230,.08);border-bottom:2px solid var(--cyan)!important;text-shadow:0 0 12px rgba(57,217,230,.35)}
+    div[data-testid="stExpander"]{border:1px solid var(--line);border-radius:12px;background:rgba(13,32,42,.72);box-shadow:0 8px 24px rgba(0,0,0,.12)}
+    div[data-testid="stAlert"]{border-radius:10px;background:rgba(16,43,53,.9);border:1px solid var(--line);color:var(--ink)}
+    div[data-baseweb="input"],div[data-baseweb="select"]>div{background:#0b2029;border-color:var(--line);color:var(--ink)}
+    [data-testid="stSlider"] [role="slider"]{background:var(--cyan);border-color:var(--cyan);box-shadow:0 0 10px rgba(57,217,230,.55)}
+    button[kind="primary"]{background:linear-gradient(135deg,#138692,#39d9e6);color:#061218;border:0;box-shadow:0 0 18px rgba(57,217,230,.2);font-weight:800}
+    button[kind="secondary"]{background:#102b35;color:var(--ink);border:1px solid var(--line)}
+    .section-card{background:linear-gradient(145deg,rgba(16,43,53,.92),rgba(9,25,33,.92));border:1px solid var(--line);border-radius:14px;padding:1rem 1.15rem;margin:.4rem 0 1rem}
+    .status-pill{display:inline-block;background:rgba(184,243,91,.1);color:var(--lime);border:1px solid rgba(184,243,91,.45);border-radius:999px;padding:.28rem .72rem;font-size:.72rem;letter-spacing:.08em;font-weight:800;box-shadow:0 0 14px rgba(184,243,91,.12)}
+    hr{border-color:var(--line)!important}
+    .stCaption,[data-testid="stCaptionContainer"]{color:var(--muted)!important}
+    @media(max-width:900px){.block-container{padding:1rem .8rem 1.5rem!important}.sub-header{margin-left:0}.main-header{font-size:1.55rem}}
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-header">🌍 GEE Geospatial Dashboard</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">GEE Geospatial Dashboard</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="sub-header">'
-    'Sentinel-2 SR · NDVI · NDWI · NDBI | Draw AOI · Upload Shapefile · Download PNG / GeoTIFF'
+    'Sentinel-2 SR · Analisis indeks · Perbandingan temporal · Klasifikasi LULC'
     '</div>',
     unsafe_allow_html=True,
 )
@@ -69,7 +95,9 @@ if not initialize_gee():
 # SIDEBAR – AOI, tanggal, filter awan
 # ──────────────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.header("⚙️ Pengaturan Global")
+    st.markdown('<span class="status-pill">● SYSTEM READY</span>', unsafe_allow_html=True)
+    st.header("Pengaturan analisis")
+    st.caption("AOI, periode citra, dan filter awan berlaku untuk semua panel.")
     st.markdown("---")
 
     # ── Input AOI ─────────────────────────────────────────────────────────────
@@ -158,7 +186,7 @@ composite = add_indices(composite_raw)
 # ──────────────────────────────────────────────────────────────────────────────
 # TABS
 # ──────────────────────────────────────────────────────────────────────────────
-tab1, tab2 = st.tabs(["🗺️ Peta Utama & Indeks", "↔️ Split-Panel"])
+tab1, tab2, tab3 = st.tabs(["🗺️ Peta Utama & Indeks", "↔️ Split-Panel", "🗺️ Klasifikasi LULC"])
 
 with tab1:
     render_tab_main_map(
@@ -169,6 +197,11 @@ with tab1:
 
 with tab2:
     render_tab_split_panel(roi, roi_json, max_cloud, center_lat, center_lon)
+
+with tab3:
+    # Ambil satellite dari dropdownSatelit (dari sidebar)
+    satellite_selected = "S2"  # Default Sentinel-2
+    render_tab_lulc(composite, roi, roi_json, satellite_selected, center_lat, center_lon)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # FOOTER

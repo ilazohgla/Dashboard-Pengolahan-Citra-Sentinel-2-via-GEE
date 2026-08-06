@@ -9,6 +9,7 @@ Utilitas geometri / GeoJSON:
 
 import os
 import tempfile
+import math
 import ee
 import streamlit as st
 from config import DEFAULT_LAT, DEFAULT_LON
@@ -29,10 +30,15 @@ def geojson_to_ee(geojson_dict: dict):
     """
     gtype = geojson_dict.get("type", "")
     if gtype == "FeatureCollection":
-        feats = geojson_dict.get("features", [])
+        feats = [f for f in geojson_dict.get("features", []) if f.get("geometry")]
         if not feats:
             return None
-        geom = feats[0].get("geometry", feats[0])
+        try:
+            # Preserve every polygon/rectangle drawn by the user. The previous
+            # implementation silently used only features[0].
+            return ee.FeatureCollection(feats).geometry()
+        except Exception:
+            return None
     elif gtype == "Feature":
         geom = geojson_dict.get("geometry", geojson_dict)
     else:
@@ -67,6 +73,13 @@ def get_centroid(geojson_dict: dict) -> tuple[float, float]:
     except (IndexError, TypeError):
         pass
     return DEFAULT_LAT, DEFAULT_LON
+
+
+def utm_epsg_from_latlon(lat: float, lon: float) -> str:
+    """Return the metric UTM CRS covering an AOI centroid."""
+    zone = int(math.floor((lon + 180) / 6) + 1)
+    code = 32600 + zone if lat >= 0 else 32700 + zone
+    return f"EPSG:{code}"
 
 
 def shapefile_to_ee(uploaded_files) -> tuple:

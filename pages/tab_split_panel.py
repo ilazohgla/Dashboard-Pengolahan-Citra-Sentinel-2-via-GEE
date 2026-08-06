@@ -28,12 +28,16 @@ def render_tab_split_panel(
 ) -> None:
     """Render seluruh konten Tab 2."""
 
-    st.subheader("↔️ Perbandingan Temporal – Synchronized Zoom")
+    st.markdown('<span class="status-pill">● TEMPORAL COMPARE</span>', unsafe_allow_html=True)
+    st.markdown("### Perbandingan temporal")
     st.info(
-        "Zoom/pan di **salah satu peta** akan otomatis sinkron ke peta lainnya. "
-        "Panel kiri = Baseline | Panel kanan = Perbandingan.",
+        "Atur dua periode lalu klik render. Zoom dan pan kedua panel akan tersinkron; garis merah menunjukkan AOI aktif.",
         icon="🔄",
     )
+
+    if not isinstance(roi_json, dict) or roi_json.get("type") not in {"Polygon", "MultiPolygon"}:
+        st.warning("AOI belum berupa polygon yang valid. Gambar atau upload AOI dari panel utama terlebih dahulu.")
+        return
 
     col_bl, col_cp = st.columns(2)
     with col_bl:
@@ -47,7 +51,14 @@ def render_tab_split_panel(
 
     sp_index = st.selectbox("Layer untuk perbandingan", list(LAYER_CONFIG.keys()), index=0)
 
-    if not st.button("🔄 Render Split-Panel Sinkron", type="primary"):
+    if bl_start >= bl_end:
+        st.error("Periode baseline tidak valid: tanggal mulai harus sebelum tanggal selesai.")
+        return
+    if cp_start >= cp_end:
+        st.error("Periode perbandingan tidak valid: tanggal mulai harus sebelum tanggal selesai.")
+        return
+
+    if not st.button("🔄 Render Split-Panel Sinkron", type="primary", width="stretch"):
         st.markdown(
             "<div style='text-align:center;padding:3rem;color:#888'>"
             "👆 Atur periode dan klik <b>Render Split-Panel Sinkron</b></div>",

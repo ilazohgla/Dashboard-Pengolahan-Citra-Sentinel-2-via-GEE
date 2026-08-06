@@ -1,0 +1,14 @@
+[client]
+showSidebarNavigation = false
+
+[server]
+headless = true
+fileWatcherType = "poll"
+
+[theme]
+base = "dark"
+primaryColor = "#39d9e6"
+backgroundColor = "#07131b"
+secondaryBackgroundColor = "#0d202a"
+textColor = "#e7f6f4"
+font = "sans serif"

@@ -7,6 +7,8 @@ Fungsi utilitas Google Earth Engine:
   - add_indices()       : tambahkan band NDVI, NDWI, NDBI
 """
 
+import os
+import json
 import ee
 import streamlit as st
 from config import GEE_PROJECT
@@ -16,9 +18,21 @@ from config import GEE_PROJECT
 def initialize_gee() -> bool:
     """
     Inisialisasi GEE.  Urutan percobaan:
-    1. ee.Initialize langsung (token sudah ada / Streamlit Cloud Secrets)
-    2. ee.Authenticate() → ee.Initialize (fallback lokal)
+    1. Service Account (Streamlit Cloud / production) — baca dari env GEE_SERVICE_ACCOUNT
+    2. ee.Initialize langsung (token lokal sudah ada)
+    3. ee.Authenticate() → ee.Initialize (fallback lokal)
     """
+    sa_json = os.getenv("GEE_SERVICE_ACCOUNT")
+    if sa_json:
+        try:
+            credentials = ee.ServiceAccountCredentials(
+                email=None, key_data=sa_json
+            )
+            ee.Initialize(credentials, project=GEE_PROJECT)
+            return True
+        except Exception:
+            pass
+
     try:
         ee.Initialize(project=GEE_PROJECT)
         return True
@@ -32,13 +46,13 @@ def initialize_gee() -> bool:
 
 
 @st.cache_data(show_spinner="Memproses Sentinel-2...", ttl=3600)
-def get_s2_composite(_roi_json: dict, start, end, cloud_pct: int):
+def get_s2_composite(roi_json: dict, start, end, cloud_pct: int):
     """
     Buat komposit median Sentinel-2 SR yang sudah di-cloud-mask.
 
     Parameters
     ----------
-    _roi_json  : dict  – GeoJSON geometry (di-cache by value)
+    roi_json   : dict  – GeoJSON geometry (ikut menjadi cache key)
     start      : date  – tanggal mulai
     end        : date  – tanggal selesai
     cloud_pct  : int   – batas maksimum tutupan awan (%)
@@ -47,7 +61,7 @@ def get_s2_composite(_roi_json: dict, start, end, cloud_pct: int):
     -------
     (ee.Image | None, int)  – komposit ter-clip + jumlah scene
     """
-    roi_geom = ee.Geometry(_roi_json)
+    roi_geom = ee.Geometry(roi_json)
 
     def mask_clouds(img: ee.Image) -> ee.Image:
         qa = img.select("QA60")
