@@ -47,7 +47,9 @@ st.markdown("""
 <style>
     :root{--bg:#07131b;--panel:#0d202a;--panel-2:#102b35;--ink:#e7f6f4;--muted:#8aa7ad;--line:#1c4650;--cyan:#39d9e6;--lime:#b8f35b;--pink:#ef6db2}
     html,body,[data-testid="stAppViewContainer"],[data-testid="stApp"]{background:radial-gradient(circle at 78% -10%,#123844 0,#07131b 42%,#050d13 100%);color:var(--ink)}
-    [data-testid="stHeader"]{background:rgba(5,13,19,.88);border-bottom:1px solid rgba(57,217,230,.18)}
+    [data-testid="stHeader"]{display:none!important}
+    #MainMenu{visibility:hidden}footer{visibility:hidden}
+    header[data-testid="stHeader"]{display:none!important}
     .block-container{max-width:1760px;padding:1.5rem 2.5rem 2.5rem!important}
     .main-header{position:relative;display:flex;align-items:center;gap:.85rem;color:var(--ink);font-size:2.05rem;font-weight:800;letter-spacing:-.04em;padding:.25rem 0 0}
     .main-header:before{content:'GEE';display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a5963,#39d9e6);color:#061218;font-size:.72rem;letter-spacing:.12em;border-radius:8px;width:52px;height:36px;box-shadow:0 0 22px rgba(57,217,230,.28)}
