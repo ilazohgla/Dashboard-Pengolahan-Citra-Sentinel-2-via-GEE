@@ -446,6 +446,7 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
                 continue
             area_data.append(
                 {
+                    "class_id": class_id,
                     "Kelas": LULC_CLASSES[class_id],
                     "Luas (km²)": f"{area_float:.3f}",
                 }
@@ -457,6 +458,9 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
         
         with tab_table:
             df_area = pd.DataFrame(area_data)
+            # Index = kode kelas LULC (1-7), bukan index pandas default (0-6),
+            # supaya konsisten dengan nilai piksel 1-7 pada GeoTIFF hasil download.
+            df_area.index = pd.Index(df_area.pop("class_id"), name="Kode Kelas")
             st.dataframe(df_area, width="stretch")
         
         # Bar chart dengan warna LULC
