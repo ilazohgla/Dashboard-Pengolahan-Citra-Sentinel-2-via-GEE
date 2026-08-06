@@ -258,13 +258,14 @@ def classify_kmeans(
     clusterer = ee.Clusterer.wekaKMeans(num_clusters).train(sample)
     clusters = input_img.cluster(clusterer).rename("cluster")
 
-    # unmask isi pixel kosong dengan 0 supaya basemap + download tampil penuh
+    # Biarkan pixel NoData tetap masked (tidak `.unmask(0)`). Dengan begitu
+    # area tanpa data tampil transparan di basemap, bukan salah dikira kelas 0.
+    # NoData akan diisi 255 nanti saat export GeoTIFF.
     return (
         clusters.rename("LULC")
         .clip(roi)
         .round()
         .toUint8()
-        .unmask(0)
     )
 
 

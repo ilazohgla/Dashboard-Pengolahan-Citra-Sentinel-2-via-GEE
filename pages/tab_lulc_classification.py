@@ -267,11 +267,15 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
         result_center_lat, result_center_lon = get_centroid(result_roi_json)
         Map = base_map(result_center_lat, result_center_lon, zoom=12)
         try:
+            # vis eksplisit: band "LULC" + palette 7 kelas, NoData transparan
+            # (hasil klasifikasi kini tidak di-unmask(0), jadi area kosong tidak
+            # menimpa basemap dengan warna kelas 0).
             add_ee_layer(
                 Map,
                 lulc_result,
-                {"min": 0, "max": 6, "palette": LULC_PALETTE},
+                {"bands": ["LULC"], "min": 0, "max": 6, "palette": LULC_PALETTE},
                 f"LULC - {method}",
+                show=True,
             )
             add_roi_layer(Map, result_roi, "Batas AOI", "yellow")
             folium.LayerControl().add_to(Map)
@@ -348,13 +352,13 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
                 area_float = 0.0
             if area_val is None or area_float <= 0:
                 continue
-                area_data.append(
-                    {
-                        "Kelas": LULC_CLASSES[class_id],
-                        "Luas (km²)": f"{area_float:.3f}",
-                    }
-                )
-                area_values_for_chart.append({"class_id": class_id, "luas": area_float})
+            area_data.append(
+                {
+                    "Kelas": LULC_CLASSES[class_id],
+                    "Luas (km²)": f"{area_float:.3f}",
+                }
+            )
+            area_values_for_chart.append({"class_id": class_id, "luas": area_float})
 
         # Tabs untuk tampilan berbeda
         tab_table, tab_bar, tab_pie = st.tabs(["📋 Tabel", "📊 Diagram Batang", "🥧 Diagram Lingkaran"])
@@ -483,19 +487,28 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
                     if composite is None:
                         st.error("❌ Composite Sentinel-2 tidak tersedia untuk menentukan grid export.")
                         st.stop()
+                    # Pakai grid resolusi asli citra (10 m utk Sentinel-2) dan
+                    # proyeksi native composite supaya hasil identik dgn basemap.
+                    # Sebelumnya hardcoded 30 m + EPSG:4326 → file kecil & grid
+                    # bergeser, tidak cocok dengan tampilan di peta.
+                    native_proj = composite.select("B2").projection()
+                    export_scale = classification_scale  # mis. 10 utk S2
                     lulc_export = (
                         lulc_result.clip(result_roi)
                         .select([0])
                         .rename("LULC_class")
                         .toUint8()
+                        .setDefaultProjection(native_proj)
                         .unmask(255)
                     )
                     geotiff_data = None
                     download_error = ""
-                    for scale in (30,):
+                    # Coba resolusi asli dulu; fallback 30 m hanya jika GEE menolak
+                    # area besar (getDownloadURL maks ~32 MB / ~100 km²).
+                    for scale in (export_scale, 30):
                         download_url = get_geotiff_raw_url(
                             lulc_export, band_name=None, roi_geom=result_roi,
-                            scale=scale, crs="EPSG:4326", format_name="GEO_TIFF"
+                            scale=scale, crs=None, format_name="GEO_TIFF"
                         )
                         if not download_url:
                             continue
@@ -506,8 +519,8 @@ def render_tab_lulc(composite, roi, roi_json, satellite, center_lat, center_lon)
                                 f"({len(geotiff_data) / 1024:.1f} KB)."
                             )
                             break
-                        if scale == classification_scale:
-                            st.warning("⚠️ Download 10 m gagal atau terlalu kecil; mencoba fallback 30 m...")
+                        if scale == export_scale:
+                            st.warning("⚠️ Download resolusi asli gagal atau terlalu besar; mencoba fallback 30 m...")
 
                     if geotiff_data:
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

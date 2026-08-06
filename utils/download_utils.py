@@ -104,18 +104,19 @@ def get_geotiff_raw_url(
         # getDownloadURL accepts a geometry object; preserve the exact AOI.
         region = region_info
         img_to_dl = ee_image if band_name is None else ee_image.select(band_name)
-        
-        if crs is None:
-                crs = "EPSG:4326"
 
         # Gunakan format ini untuk stabilitas lebih baik
         params = {
             "region": region,
             "scale":  scale,
             "format": format_name,
-            "crs":    crs,
             "filePerBand": False,
         }
+        # crs=None → jangan paksa EPSG:4326; biarkan GEE memakai projection
+        # default image (setDefaultProjection dari native composite) supaya
+        # grid GeoTIFF identik dengan tampilan basemap, bukan bergeser/resample.
+        if crs is not None:
+            params["crs"] = crs
         return img_to_dl.getDownloadURL(params)
     except Exception as e:
         print(f"DEBUG: Error generating URL: {e}")
