@@ -3,7 +3,7 @@
 > **Dashboard pengolahan citra Sentinel-2 berbasis Google Earth Engine (GEE).**
 > Visualisasikan komposit median, hitung indeks spektral, bandingkan antar-periode, dan klasifikasikan tutupan lahan (LULC) — semuanya dari browser.
 
-[![Streamlit App](https://img.shields.io/badge/🚀%20Live%20App-gee-geospatial-sentinel2-dashboard.streamlit.app-22d3ee?logo=streamlit&logoColor=white)](https://gee-geospatial-sentinel2-dashboard.streamlit.app)
+[![Streamlit App](https://img.shields.io/badge/🚀%20Live%20App-gee--geospatial--sentinel2--dashboard.streamlit.app-22d3ee?logo=streamlit&logoColor=white)](https://gee-geospatial-sentinel2-dashboard.streamlit.app)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![GEE](https://img.shields.io/badge/Google%20Earth%20Engine-4285F4?logo=google&logoColor=white)](https://earthengine.google.com)
