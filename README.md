@@ -147,9 +147,8 @@ File style untuk menampilkan GeoTIFF LULC (1 band, nilai 1–7) dengan warna per
 | File | Untuk | Cara pakai |
 |------|-------|-----------|
 | `lulc_7_kelas.qml` | **QGIS** (raster) | Layer Properties → Symbology → Style → Load Style → "QGIS Layer Style File" |
-| `lulc_7_kelas.sld` | **GeoServer** / WMS server-side | Upload via GeoServer REST/UI sebagai style raster |
 
-> ⚠️ **QGIS TIDAK mendukung load SLD untuk layer raster** (error *"Layer type 1 not supported"* — parser SLD QGIS hanya untuk layer vektor). Untuk raster di QGIS selalu pakai `.qml`. SLD diperuntukkan GeoServer (nilai 0 otomatis transparan di kedua format).
+> 💡 **Catatan:** QGIS tidak mendukung SLD untuk layer raster (error *"Layer type 1 not supported"* — parser SLD QGIS hanya untuk layer vektor), jadi cukup pakai `.qml`. Nilai piksel `0` (NoData) otomatis transparan.
 
 ---
 
@@ -237,7 +236,6 @@ gee-dashboard/
 ├── LICENSE                       # Lisensi MIT
 ├── .env.example                  # Template environment variable
 ├── lulc_7_kelas.qml              # Style warna LULC untuk QGIS (raster)
-├── lulc_7_kelas.sld              # Style warna LULC untuk GeoServer
 │
 ├── utils/
 │   ├── gee_utils.py              # GEE auth, komposit Sentinel-2, cloud mask, indeks
