@@ -135,6 +135,17 @@ Setiap piksel dianalisis dengan **6 band reflektansi** (B2–B7 Sentinel-2 / SR_
 - Untuk **GeoTIFF LULC**: nilai piksel `1–7` = kelas, `0` = NoData.
 - > **Batas GEE:** `getDownloadURL` dibatasi ±32 MB / ±100 km². Untuk area lebih besar gunakan **Export ke Google Drive**.
 
+### 🎨 Style Warna LULC
+
+File style untuk menampilkan GeoTIFF LULC (1 band, nilai 1–7) dengan warna persis dashboard:
+
+| File | Untuk | Cara pakai |
+|------|-------|-----------|
+| `lulc_7_kelas.qml` | **QGIS** (raster) | Layer Properties → Symbology → Style → Load Style → "QGIS Layer Style File" |
+| `lulc_7_kelas.sld` | **GeoServer** / WMS server-side | Upload via GeoServer REST/UI sebagai style raster |
+
+> ⚠️ **QGIS TIDAK mendukung load SLD untuk layer raster** (error *"Layer type 1 not supported"* — parser SLD QGIS hanya untuk layer vektor). Untuk raster di QGIS selalu pakai `.qml`. SLD diperuntukkan GeoServer (nilai 0 otomatis transparan di kedua format).
+
 ---
 
 ## 🛠️ Instalasi & Menjalankan Secara Lokal
