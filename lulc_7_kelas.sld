@@ -1,31 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<StyledLayerDescriptor xmlns="http://www.opengis.net/sld" version="1.0.0" xmlns:gml="http://www.opengis.net/gml" xmlns:sld="http://www.opengis.net/sld" xmlns:ogc="http://www.opengis.net/ogc">
-  <UserLayer>
-    <sld:LayerFeatureConstraints>
-      <sld:FeatureTypeConstraint/>
-    </sld:LayerFeatureConstraints>
-    <sld:UserStyle>
-      <sld:Name>LULC 7 Kelas</sld:Name>
-      <sld:FeatureTypeStyle>
-        <sld:Rule>
-          <sld:RasterSymbolizer>
-            <sld:ChannelSelection>
-              <sld:GrayChannel>
-                <sld:SourceChannelName>1</sld:SourceChannelName>
-              </sld:GrayChannel>
-            </sld:ChannelSelection>
-            <sld:ColorMap type="values">
-              <sld:ColorMapEntry color="#e53935" label="Built-up (Area Terbangun)" quantity="1"/>
-              <sld:ColorMapEntry color="#f4b400" label="Cropland (Lahan Pertanian)" quantity="2"/>
-              <sld:ColorMapEntry color="#2e7d32" label="Forest (Hutan)" quantity="3"/>
-              <sld:ColorMapEntry color="#1e88e5" label="Water (Perairan)" quantity="4"/>
-              <sld:ColorMapEntry color="#9e9d24" label="Bare Land (Lahan Terbuka)" quantity="5"/>
-              <sld:ColorMapEntry color="#6d4c41" label="Shrub &amp; Grassland (Semak/Padang Rumput)" quantity="6"/>
-              <sld:ColorMapEntry color="#26a69a" label="Wetland (Lahan Basah)" quantity="7"/>
-            </sld:ColorMap>
-          </sld:RasterSymbolizer>
-        </sld:Rule>
-      </sld:FeatureTypeStyle>
-    </sld:UserStyle>
-  </UserLayer>
+<StyledLayerDescriptor xmlns="http://www.opengis.net/sld" version="1.0.0" xmlns:ogc="http://www.opengis.net/ogc">
+  <NamedLayer>
+    <Name>LULC 7 Kelas</Name>
+    <UserStyle>
+      <Name>LULC 7 Kelas</Name>
+      <Title>LULC 7 Kelas</Title>
+      <FeatureTypeStyle>
+        <Rule>
+          <RasterSymbolizer>
+            <ChannelSelection>
+              <GrayChannel>
+                <SourceChannelName>1</SourceChannelName>
+              </GrayChannel>
+            </ChannelSelection>
+            <ColorMap type="values">
+              <ColorMapEntry color="#e53935" quantity="1" label="Built-up (Area Terbangun)"/>
+              <ColorMapEntry color="#f4b400" quantity="2" label="Cropland (Lahan Pertanian)"/>
+              <ColorMapEntry color="#2e7d32" quantity="3" label="Forest (Hutan)"/>
+              <ColorMapEntry color="#1e88e5" quantity="4" label="Water (Perairan)"/>
+              <ColorMapEntry color="#9e9d24" quantity="5" label="Bare Land (Lahan Terbuka)"/>
+              <ColorMapEntry color="#6d4c41" quantity="6" label="Shrub &amp; Grassland (Semak/Padang Rumput)"/>
+              <ColorMapEntry color="#26a69a" quantity="7" label="Wetland (Lahan Basah)"/>
+            </ColorMap>
+          </RasterSymbolizer>
+        </Rule>
+      </FeatureTypeStyle>
+    </UserStyle>
+  </NamedLayer>
 </StyledLayerDescriptor>
