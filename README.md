@@ -1,9 +1,9 @@
-# 🛰️ GEE Geospatial Dashboard (Sentinel-2)
+# 🛰️ S2 Geo Dashboard (Sentinel-2)
 
 > **Dashboard pengolahan citra Sentinel-2 berbasis Google Earth Engine (GEE).**
 > Visualisasikan komposit median, hitung indeks spektral, bandingkan antar-periode, dan klasifikasikan tutupan lahan (LULC) — semuanya dari browser.
 
-[![Streamlit App](https://img.shields.io/badge/🚀%20Live%20App-gee--geospatial--sentinel2--dashboard.streamlit.app-22d3ee?logo=streamlit&logoColor=white)](https://gee-geospatial-sentinel2-dashboard.streamlit.app)
+[![Streamlit App](https://img.shields.io/badge/🚀%20Live%20App-s2dashboard.streamlit.app-22d3ee?logo=streamlit&logoColor=white)](https://s2dashboard.streamlit.app)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![GEE](https://img.shields.io/badge/Google%20Earth%20Engine-4285F4?logo=google&logoColor=white)](https://earthengine.google.com)
@@ -31,7 +31,7 @@
 
 ## 📌 Tentang Proyek
 
-**GEE Geospatial Dashboard** adalah aplikasi web open-source untuk analisis citra **Sentinel-2 Surface Reflectance (SR)** menggunakan komputasi cloud **Google Earth Engine**. Aplikasi ini dirancang untuk membantu:
+**S2 Geo Dashboard** adalah aplikasi web open-source untuk analisis citra **Sentinel-2 Surface Reflectance (SR)** menggunakan komputasi cloud **Google Earth Engine**. Aplikasi ini dirancang untuk membantu:
 
 | Pengguna | Kegunaan |
 |---------|----------|
@@ -64,7 +64,7 @@ Tanpa perlu mengunduh data atau memiliki mesin khusus — cukup browser dan kone
 
 ### Akses langsung (tanpa instalasi)
 
-Buka **[gee-geospatial-sentinel2-dashboard.streamlit.app](https://gee-geospatial-sentinel2-dashboard.streamlit.app)** — aplikasi berjalan sepenuhnya di cloud.
+Buka **[s2dashboard.streamlit.app](https://s2dashboard.streamlit.app)** — aplikasi berjalan sepenuhnya di cloud.
 
 ### Alur kerja 5 langkah
 
@@ -164,8 +164,8 @@ File style untuk menampilkan GeoTIFF LULC (1 band, nilai 1–7) dengan warna per
 
 ```bash
 # 1. Clone repositori
-git clone https://github.com/ilazohgla/Dashboard-Pengolahan-Citra-Sentinel-2-via-GEE.git
-cd Dashboard-Pengolahan-Citra-Sentinel-2-via-GEE
+git clone https://github.com/ilazohgla/s2-gee-dashboard.git
+cd s2-gee-dashboard
 
 # 2. Virtual environment (disarankan)
 python -m venv .venv
@@ -218,7 +218,7 @@ Panduan lengkap: [GEE Service Account](https://developers.google.com/earth-engin
 
 ## ☁️ Deploy ke Streamlit Cloud
 
-> 🟢 **App live:** [gee-geospatial-sentinel2-dashboard.streamlit.app](https://gee-geospatial-sentinel2-dashboard.streamlit.app) (auto-deploy dari branch `main`).
+> 🟢 **App live:** [s2dashboard.streamlit.app](https://s2dashboard.streamlit.app) (auto-deploy dari branch `main`).
 
 1. Push repositori ke GitHub (pastikan `.env` **tidak** ikut ter-push).
 2. Buka [share.streamlit.io](https://share.streamlit.io) → hubungkan GitHub → pilih repo → main file `app.py`.
