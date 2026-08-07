@@ -1,6 +1,6 @@
 """
 ================================================================================
- config.py  –  Konfigurasi terpusat GEE Geospatial Dashboard
+ config.py  –  Konfigurasi terpusat S2 Geo Dashboard
  Semua nilai sensitif (project ID, dll.) dibaca dari environment variable
  atau file .env  →  jangan pernah commit file .env ke Git!
 ================================================================================

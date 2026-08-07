@@ -1,6 +1,6 @@
 """
 ================================================================================
- app.py  –  GEE Geospatial Dashboard v3  (entry point)
+ app.py  –  S2 Geo Dashboard v3  (entry point)
 ================================================================================
  Stack : Python | Streamlit | Folium | streamlit-folium | Google Earth Engine
  ─────────────────────────────────────────────────────────────────────────────
@@ -34,7 +34,7 @@ from pages.tab_lulc_classification import render_tab_lulc
 # PAGE CONFIG
 # ──────────────────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="GEE Geospatial Dashboard",
+    page_title="S2 Geo Dashboard",
     page_icon="🌍",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -454,7 +454,7 @@ st.markdown("""
 st.markdown("""
 <div class="app-header">
     <div class="header-kicker">Sentinel-2 · Google Earth Engine</div>
-    <h1 class="header-title">GEE Geospatial <span class="accent">Dashboard</span></h1>
+    <h1 class="header-title">S2 Geo <span class="accent">Dashboard</span></h1>
     <div class="header-sub">Citra Sentinel-2 SR · Indeks spektral · Split-panel temporal · Klasifikasi LULC</div>
     <div class="header-badges">
         <span class="chip">Sentinel-2 SR</span>
@@ -591,7 +591,7 @@ with tab3:
 st.markdown("---")
 st.markdown(
     "<div style='text-align:center;font-size:.78rem;color:#aaa'>"
-    "🛰️ GEE Geospatial Dashboard v3 · Sentinel-2 SR · "
+    "🛰️ S2 Geo Dashboard v3 · Sentinel-2 SR · "
     "Folium + streamlit-folium + Leaflet.js + Google Earth Engine"
     "</div>",
     unsafe_allow_html=True,
