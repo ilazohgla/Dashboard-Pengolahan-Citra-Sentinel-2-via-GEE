@@ -3,6 +3,7 @@
 > **Dashboard pengolahan citra Sentinel-2 berbasis Google Earth Engine (GEE).**
 > Visualisasikan komposit median, hitung indeks spektral, bandingkan antar-periode, dan klasifikasikan tutupan lahan (LULC) — semuanya dari browser.
 
+[![Streamlit App](https://img.shields.io/badge/🚀%20Live%20App-gee-geospatial-sentinel2-dashboard.streamlit.app-22d3ee?logo=streamlit&logoColor=white)](https://gee-geospatial-sentinel2-dashboard.streamlit.app)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![Streamlit](https://img.shields.io/badge/Made%20with-Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io)
 [![GEE](https://img.shields.io/badge/Google%20Earth%20Engine-4285F4?logo=google&logoColor=white)](https://earthengine.google.com)
@@ -60,6 +61,10 @@ Tanpa perlu mengunduh data atau memiliki mesin khusus — cukup browser dan kone
 ---
 
 ## 🚀 Cara Menggunakan
+
+### Akses langsung (tanpa instalasi)
+
+Buka **[gee-geospatial-sentinel2-dashboard.streamlit.app](https://gee-geospatial-sentinel2-dashboard.streamlit.app)** — aplikasi berjalan sepenuhnya di cloud.
 
 ### Alur kerja 5 langkah
 
@@ -214,6 +219,8 @@ Panduan lengkap: [GEE Service Account](https://developers.google.com/earth-engin
 
 ## ☁️ Deploy ke Streamlit Cloud
 
+> 🟢 **App live:** [gee-geospatial-sentinel2-dashboard.streamlit.app](https://gee-geospatial-sentinel2-dashboard.streamlit.app) (auto-deploy dari branch `main`).
+
 1. Push repositori ke GitHub (pastikan `.env` **tidak** ikut ter-push).
 2. Buka [share.streamlit.io](https://share.streamlit.io) → hubungkan GitHub → pilih repo → main file `app.py`.
 3. Di **Advanced settings → Secrets**, tambahkan kredensial service account (format di atas).
@@ -227,7 +234,10 @@ gee-dashboard/
 ├── app.py                        # Entry point
 ├── config.py                     # Konfigurasi terpusat (vis params, GEE_PROJECT)
 ├── requirements.txt              # Dependensi
+├── LICENSE                       # Lisensi MIT
 ├── .env.example                  # Template environment variable
+├── lulc_7_kelas.qml              # Style warna LULC untuk QGIS (raster)
+├── lulc_7_kelas.sld              # Style warna LULC untuk GeoServer
 │
 ├── utils/
 │   ├── gee_utils.py              # GEE auth, komposit Sentinel-2, cloud mask, indeks
